@@ -1,0 +1,11 @@
+{
+  "targets": {
+    "kanbanfire-219": {
+      "hosting": {
+        "kanban-fire-app": [
+          "kanbanfire-219"
+        ]
+      }
+    }
+  }
+}

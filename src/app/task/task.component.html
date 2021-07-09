@@ -1,0 +1,8 @@
+<mat-card class="item" *ngIf="task" (click)="edit.emit(task)">
+  <h2>{{ task.title }}</h2>
+  <p>
+    {{ task.description }}
+  </p>
+</mat-card>
+<!-- TODO: Make it so you can update cards in line, no need for a dialog, don't forget that you should only
+update the DB after you're done editing, debounce and all that. -->
