@@ -14,6 +14,7 @@ import { ITask } from './task/task';
 // TODO: Create a service to encapsulate the any transactional firestore logic behind this.
 // TODO: How does this look on mobile?
 // TODO: in the future, add labels that correspond to lanes, then make lanes filterable for users (use url routes/params to bookmark views)
+// TODO: User Authentication : https://www.positronx.io/full-angular-7-firebase-authentication-system/ , create roles?
 
 export type Collections = 'todo' | 'done' | 'inProgress';
 
