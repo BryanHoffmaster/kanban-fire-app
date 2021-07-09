@@ -9,7 +9,6 @@ import { ITask } from './task/task';
 // TODO: Add ability to order the tasks, the "lanes" currently do not allow re-ordering
 //      -- Requires that tasks track their order, and it reflects state from the DB
 //      -- OnDrop needs to run updateItemOrder
-// TODO: Push this up to github
 // TODO: Set up user accounts
 // TODO: routes?
 // TODO: Create a service to encapsulate the any transactional firestore logic behind this.
@@ -56,17 +55,11 @@ export class AppComponent {
     }));
 
     dialogRef.afterClosed().subscribe((result: ITaskDialogResult) => {
-      // const dataList = this[list]; // I don't like this way to pull in a property
-      // const taskIndex = dataList.indexOf(task);
       if (result.cancel) { return; } // do nothing.
 
       if (result.delete) {
-        // remove from the tracked list of todo items
-        // dataList.splice(taskIndex, 1);
         this.store.collection(list).doc(task.id).delete();
       } else {
-        // update the values for the edited task
-        // dataList[taskIndex] = task;
         this.store.collection(list).doc(task.id).update(result.task);
       }
     });

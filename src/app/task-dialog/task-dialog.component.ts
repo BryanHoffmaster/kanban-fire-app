@@ -2,6 +2,9 @@ import { Component, Inject, OnInit } from '@angular/core';
 import { MatDialogConfig, MatDialogRef, MatDialogState, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { ITask } from '../task/task';
 
+// TODO: Extend this class from a base dialog class, setup any interfaces, and add template outlets for each dialog view layout
+//        -- Use templateOutletContext (pass dialogContext data into MAT_DIALOG_DATA ) to extend template variables
+
 @Component({
   selector: 'app-task-dialog',
   templateUrl: './task-dialog.component.html',
