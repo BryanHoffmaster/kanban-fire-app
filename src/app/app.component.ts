@@ -3,6 +3,7 @@ import { Component, ViewChild } from '@angular/core';
 import { AngularFirestore, AngularFirestoreCollection } from '@angular/fire/firestore';
 import { MatDialog } from '@angular/material/dialog';
 import { BehaviorSubject, Observable } from 'rxjs';
+import { environment } from 'src/environments/environment';
 import { TaskDialogComponent, ITaskDialogResult } from './task-dialog/task-dialog.component';
 import { ITask } from './task/task';
 
@@ -15,15 +16,21 @@ import { ITask } from './task/task';
 // TODO: How does this look on mobile?
 // TODO: in the future, add labels that correspond to lanes, then make lanes filterable for users (use url routes/params to bookmark views)
 // TODO: User Authentication : https://www.positronx.io/full-angular-7-firebase-authentication-system/ , create roles?
+// TODO: checkout more on firestore collection auditTrail for collection value changes auditing.
 
 export type Collections = 'todo' | 'done' | 'inProgress';
 
-const getObservable = (collection: AngularFirestoreCollection<ITask>) => {
+const getObservable = (collection: AngularFirestoreCollection<ITask>, internalCollectionRef?: ITask[]) => {
   const subject = new BehaviorSubject<ITask[]>([]); // initialize with empty array
-  collection.valueChanges({ idField: 'id' }).subscribe((tasks: ITask[]) => {
-    subject.next(orderTasks(tasks));
+  collection.valueChanges({ idField: 'id' }).subscribe({
+    next: (tasks: ITask[]) => {
+      const orderedTasks = orderTasks(tasks)
+      if (internalCollectionRef) internalCollectionRef = orderedTasks
+      subject.next(orderedTasks)
+    },
+    error: err => console.error(`ERROR: Collection value change error for : ${collection} `, err),
+    complete: () => { if (!environment.production) console.debug('Collection') }
   });
-
   return subject;
 };
 
@@ -37,9 +44,15 @@ const orderTasks = (items: ITask[]): ITask[] => items.sort((a, b) => a.order - b
 export class AppComponent {
   title = 'kanban-fire-app';
 
-  todo = getObservable(this.store.collection('todo')) as Observable<ITask[]>;
-  inProgress = getObservable(this.store.collection('inProgress')) as Observable<ITask[]>;
-  done = getObservable(this.store.collection('done')) as Observable<ITask[]>;
+  private _todo: ITask[] = [];
+  private _inProgress: ITask[] = [];
+  private _done: ITask[] = [];
+
+  // TODO: Bring thise store references out to private variables/ or start a service
+
+  todo = getObservable(this.store.collection('todo'), this._todo) as Observable<ITask[]>;
+  inProgress = getObservable(this.store.collection('inProgress'), this._inProgress) as Observable<ITask[]>;
+  done = getObservable(this.store.collection('done'), this._done) as Observable<ITask[]>;
 
   @ViewChild('todoList', { static: true }) todoList!: CdkDropList;
   @ViewChild('inProgressList', { static: true }) inProgressList!: CdkDropList;
@@ -56,7 +69,7 @@ export class AppComponent {
     }));
 
     dialogRef.afterClosed().subscribe((result: ITaskDialogResult) => {
-      if (result.cancel) { return; } // do nothing.
+      if (!result || result.cancel) { return; } // do nothing.
 
       if (result.delete) {
         this.store.collection(list).doc(task.id).delete();
@@ -67,17 +80,36 @@ export class AppComponent {
   }
 
   drop(event: CdkDragDrop<ITask[] | null>): void {
-    if (event.previousContainer === event.container) {
-      const reorderItem = event.container.data[event.currentIndex];
-      reorderItem.order = event.currentIndex;
+    if (!event) return;
 
-      moveItemInArray(event.container.data, event.previousIndex, event.currentIndex);
-      this.store.collection(event.container.id).doc(reorderItem.id).update(reorderItem.order);
+    // If an task was reordered in the same lane
+    if (event.previousContainer.id === event.container.id) {
+      const listObj = this[`${event.container.id}List`] as CdkDropList;
+      
+       // XXXXX you left off here: CdkDrag object does not have access to any data, it's just the drag item.
+      const sortedItems = listObj?.getSortedItems();
+      const promiseTasks = [];
+
+      if (sortedItems) {
+        for (let index = 0; index < sortedItems.length; index++) {
+          const item = sortedItems[index].data as ITask;
+          item.order  = index;
+          promiseTasks.push(this.store.collection(event.container.id).doc(item.id).update(item));
+        }
+      }
+
+      this.store.firestore.runTransaction(() => {
+        const promise = Promise.all(promiseTasks);
+        return promise;
+      });
+
+      // moveItemInArray(this[event.container.id], event.previousIndex, event.currentIndex);
+      // this.store.collection<ITask[]>(event.container.id).doc<ITask>(reorderItem.id).update(reorderItem);
       return;
     }
 
+    // If the drop occurred in another lane
     const item = event.previousContainer.data[event.previousIndex];
-
     this.store.firestore.runTransaction(() => {
       const promise = Promise.all([
         // these operations runs async, delete the item from the previous container, add it to the new one
@@ -104,7 +136,7 @@ export class AppComponent {
     }));
 
     dialogRef.afterClosed().subscribe((result: ITaskDialogResult) => {
-      if (result.task.title) {
+      if (result?.task?.title) {
         result.task.order = 0; // new ones always at the top of the list
         // TODO: Right now the drgList has an order that is updated when a new item is given with an order zero
         // then it calls order tasks list based on that number back to the DB, which then makes another round trip.
