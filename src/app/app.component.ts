@@ -1,5 +1,7 @@
 import { CdkDragDrop, CdkDropList, moveItemInArray, transferArrayItem } from '@angular/cdk/drag-drop';
+import { compileNgModuleDeclarationExpression } from '@angular/compiler/src/render3/r3_module_compiler';
 import { Component, ViewChild } from '@angular/core';
+import { TestBed } from '@angular/core/testing';
 import { AngularFirestore, AngularFirestoreCollection } from '@angular/fire/firestore';
 import { MatDialog } from '@angular/material/dialog';
 import { BehaviorSubject, Observable } from 'rxjs';
@@ -18,7 +20,9 @@ import { ITask } from './task/task';
 // TODO: User Authentication : https://www.positronx.io/full-angular-7-firebase-authentication-system/ , create roles?
 // TODO: checkout more on firestore collection auditTrail for collection value changes auditing.
 
-export type Collections = 'todo' | 'done' | 'inProgress';
+export type CollectionType = 'todo' | 'done' | 'inProgress';
+enum Collections { 'todo', 'done', 'inProgress' };
+
 
 const getObservable = (collection: AngularFirestoreCollection<ITask>, internalCollectionRef?: ITask[]) => {
   const subject = new BehaviorSubject<ITask[]>([]); // initialize with empty array
@@ -60,7 +64,7 @@ export class AppComponent {
 
   constructor(private dialog: MatDialog, private store: AngularFirestore) { }
 
-  editTask(list: Collections, task: ITask): void {
+  editTask(list: CollectionType, task: ITask): void {
     const dialogRef = this.dialog.open(TaskDialogComponent, TaskDialogComponent.windowArgs({
       data: {
         task,
@@ -85,46 +89,32 @@ export class AppComponent {
     // If an task was reordered in the same lane
     if (event.previousContainer.id === event.container.id) {
       const listObj = this[`${event.container.id}List`] as CdkDropList;
-      
-       // XXXXX you left off here: CdkDrag object does not have access to any data, it's just the drag item.
-      const sortedItems = listObj?.getSortedItems();
-      const promiseTasks = [];
 
-      if (sortedItems) {
-        for (let index = 0; index < sortedItems.length; index++) {
-          const item = sortedItems[index].data as ITask;
-          item.order  = index;
-          promiseTasks.push(this.store.collection(event.container.id).doc(item.id).update(item));
-        }
-      }
+      // TODO: Just updating the collection does not update the list locally, why?
+      moveItemInArray(event.container.data, event.previousIndex, event.currentIndex);
+
+      this.orderListTasks(Collections[event.container.id], listObj);
+
+      // If the drop occurred in another lane
+    } else if (event.previousContainer.id != event.container.id) {
+      const item = event.previousContainer.data[event.previousIndex];
 
       this.store.firestore.runTransaction(() => {
-        const promise = Promise.all(promiseTasks);
+        const promise = Promise.all([
+          // these operations runs async, delete the item from the previous container, add it to the new one
+          this.store.collection(event.previousContainer.id).doc(item.id).delete(),
+          this.store.collection(event.container.id).add(item),
+        ]);
         return promise;
       });
 
-      // moveItemInArray(this[event.container.id], event.previousIndex, event.currentIndex);
-      // this.store.collection<ITask[]>(event.container.id).doc<ITask>(reorderItem.id).update(reorderItem);
-      return;
+      transferArrayItem(
+        event.previousContainer.data,
+        event.container.data,
+        event.previousIndex,
+        event.currentIndex
+      );
     }
-
-    // If the drop occurred in another lane
-    const item = event.previousContainer.data[event.previousIndex];
-    this.store.firestore.runTransaction(() => {
-      const promise = Promise.all([
-        // these operations runs async, delete the item from the previous container, add it to the new one
-        this.store.collection(event.previousContainer.id).doc(item.id).delete(),
-        this.store.collection(event.container.id).add(item),
-      ]);
-      return promise;
-    });
-
-    transferArrayItem(
-      event.previousContainer.data,
-      event.container.data,
-      event.previousIndex,
-      event.currentIndex
-    );
   }
 
   // Adds a new task to the 'todo' lane.
@@ -142,7 +132,7 @@ export class AppComponent {
         // then it calls order tasks list based on that number back to the DB, which then makes another round trip.
         // Can I make this more efficient?
         this.store.collection('todo').add(result.task).then(() => {
-          this.orderListTasks('todo', this.todoList);
+          this.orderListTasks(Collections['todo'], this.todoList);
         });
       }
     });
@@ -151,12 +141,14 @@ export class AppComponent {
   // do this before adding the
   // TODO: refactor into transaction service API member/property.
   private orderListTasks(collection: Collections, dropList: CdkDropList): void {
+    if (!(collection in Collections)) return;
+
     const items = dropList.data as ITask[];
     const promiseTasks = [];
     for (let index = 0; index < items.length; index++) {
       const item = items[index];
       item.order = index;
-      promiseTasks.push(this.store.collection(collection).doc(item.id).update(item));
+      promiseTasks.push(this.store.collection(collection.toString()).doc(item.id).update(item));
     }
 
     this.store.firestore.runTransaction(() => {
