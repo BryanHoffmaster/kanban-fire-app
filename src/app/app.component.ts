@@ -1,7 +1,5 @@
 import { CdkDragDrop, CdkDropList, moveItemInArray, transferArrayItem } from '@angular/cdk/drag-drop';
-import { compileNgModuleDeclarationExpression } from '@angular/compiler/src/render3/r3_module_compiler';
 import { Component, ViewChild } from '@angular/core';
-import { TestBed } from '@angular/core/testing';
 import { AngularFirestore, AngularFirestoreCollection } from '@angular/fire/firestore';
 import { MatDialog } from '@angular/material/dialog';
 import { BehaviorSubject, Observable } from 'rxjs';
@@ -9,10 +7,7 @@ import { environment } from 'src/environments/environment';
 import { TaskDialogComponent, ITaskDialogResult } from './task-dialog/task-dialog.component';
 import { ITask } from './task/task';
 
-// TODO: Add ability to order the tasks, the "lanes" currently do not allow re-ordering
-//      -- Requires that tasks track their order, and it reflects state from the DB
-//      -- OnDrop needs to run updateItemOrder
-// TODO: Set up user accounts
+ // TODO: Set up user accounts
 // TODO: routes?
 // TODO: Create a service to encapsulate the any transactional firestore logic behind this.
 // TODO: How does this look on mobile?
@@ -20,9 +15,16 @@ import { ITask } from './task/task';
 // TODO: User Authentication : https://www.positronx.io/full-angular-7-firebase-authentication-system/ , create roles?
 // TODO: checkout more on firestore collection auditTrail for collection value changes auditing.
 
-export type CollectionType = 'todo' | 'done' | 'inProgress';
-enum Collections { 'todo', 'done', 'inProgress' };
+export type Collections = keyof typeof Collections;
+export const Collections = strEnum(['todo', 'done', 'inProgress' ]);
 
+/** Utility function to create a K:V from a list of strings */
+function strEnum<T extends string>(obj: Array<T>): {[K in T]: K} {
+  return obj.reduce((res, key) => {
+    res[key] = key;
+    return res;
+  }, Object.create(null));
+}
 
 const getObservable = (collection: AngularFirestoreCollection<ITask>, internalCollectionRef?: ITask[]) => {
   const subject = new BehaviorSubject<ITask[]>([]); // initialize with empty array
@@ -32,6 +34,7 @@ const getObservable = (collection: AngularFirestoreCollection<ITask>, internalCo
       if (internalCollectionRef) internalCollectionRef = orderedTasks
       subject.next(orderedTasks)
     },
+    // TODO:Is there an error that happens that you want to clear this subscription? throw?
     error: err => console.error(`ERROR: Collection value change error for : ${collection} `, err),
     complete: () => { if (!environment.production) console.debug('Collection') }
   });
@@ -64,7 +67,7 @@ export class AppComponent {
 
   constructor(private dialog: MatDialog, private store: AngularFirestore) { }
 
-  editTask(list: CollectionType, task: ITask): void {
+  editTask(list: Collections, task: ITask): void {
     const dialogRef = this.dialog.open(TaskDialogComponent, TaskDialogComponent.windowArgs({
       data: {
         task,
