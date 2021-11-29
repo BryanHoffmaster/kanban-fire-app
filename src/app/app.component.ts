@@ -7,7 +7,7 @@ import { environment } from 'src/environments/environment';
 import { TaskDialogComponent, ITaskDialogResult } from './task-dialog/task-dialog.component';
 import { ITask } from './task/task';
 
- // TODO: Set up user accounts
+// TODO: Set up user accounts
 // TODO: routes?
 // TODO: Create a service to encapsulate the any transactional firestore logic behind this.
 // TODO: How does this look on mobile?
