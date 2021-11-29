@@ -2,5 +2,21 @@
     "angular.enable-strict-mode-prompt": false,
 	"editor.tabSize": 2,
 	"editor.insertSpaces": true,
-	"editor.detectIndentation": true
+	"editor.detectIndentation": true,
+	"workbench.colorCustomizations": {
+		"activityBar.activeBackground": "#1a2279",
+		"activityBar.activeBorder": "#b82734",
+		"activityBar.background": "#1a2279",
+		"activityBar.foreground": "#e7e7e7",
+		"activityBar.inactiveForeground": "#e7e7e799",
+		"activityBarBadge.background": "#b82734",
+		"activityBarBadge.foreground": "#e7e7e7",
+		"statusBar.background": "#11164f",
+		"statusBar.foreground": "#e7e7e7",
+		"statusBarItem.hoverBackground": "#1a2279",
+		"titleBar.activeBackground": "#11164f",
+		"titleBar.activeForeground": "#e7e7e7",
+		"titleBar.inactiveBackground": "#11164f99",
+		"titleBar.inactiveForeground": "#e7e7e799"
+	}
 }
